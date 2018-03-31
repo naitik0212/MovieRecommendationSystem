@@ -3,6 +3,10 @@ from random import randrange
 from random import sample
 
 
+file_trainRating = 'Data/ml-20m/train_ratings.csv'
+file_testRating = 'Data/ml-20m/test_ratings.csv'
+
+
 def load_csv_dataset(filename):
     """Load the CSV file"""
     dataset = pd.read_csv(filename)
@@ -26,25 +30,36 @@ def cross_validation_split(dataset, n_folds):
     return dataset_split
 
 
-def percentageSplit(dataset, trainingPer=80, testingPer=20):
+def getTrainTestData(filename, trainingPer=80, testingPer=20):
     """Evaluate an algorithm using a cross validation split"""
-
+    import os.path
     from numpy.core.tests.test_mem_overlap import xrange
 
-    datasize = dataset.shape[0]
-    train_size = int(datasize * trainingPer / 100)
-    test_size = datasize - train_size
+    if os.path.isfile(file_trainRating) and os.path.isfile(file_testRating):
+        train_set = pd.read_csv(filename)
+        test_set = pd.read_csv(filename)
+        return train_set, test_set
+    else:
+        dataset = load_csv_dataset(filename)
+        datasize = dataset.shape[0]
+        train_size = int(datasize * trainingPer / 100)
+        test_size = datasize - train_size
 
-    indexes_to_remove = sample(xrange(datasize), test_size)
-    indexes_to_keep = set(range(datasize)) - set(indexes_to_remove)
+        indexes_to_remove = sample(xrange(datasize), test_size)
+        indexes_to_keep = set(xrange(datasize)) - set(indexes_to_remove)
 
-    train_set = dataset.take(list(indexes_to_keep))
-    test_set = dataset.take(list(indexes_to_remove))
+        train_set = dataset.take(list(indexes_to_keep))
+        test_set = dataset.take(list(indexes_to_remove))
+        saveDataToFile(file_trainRating, train_set)
+        saveDataToFile(file_testRating, test_set)
 
-    return train_set, test_set
+        return train_set, test_set
+
+
+def saveDataToFile(filename, data):
+    data.to_csv(filename, index=False)
 
 
 filename = 'Data/ml-20m/ratings.csv'
-dataset = load_csv_dataset(filename)
-print(len(dataset), dataset.shape)
-x, y = percentageSplit(dataset)
+
+train, test = getTrainTestData(filename)
