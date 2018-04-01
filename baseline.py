@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import math
+import os.path
 
 import data_reading
 import db_helper
@@ -16,6 +17,15 @@ def getMean(dataset, columnName='rating'):
 
 def getUniqueColumnsValues(dataset, columnName):
     return dataset[columnName].unique()
+
+
+def loadModel(path=modelfilename):
+    if not os.path.isfile(modelfilename):
+        training()
+
+    with open(modelfilename, 'r') as f:
+        model = json.load(f)
+    return model
 
 
 def training():
@@ -34,30 +44,35 @@ def training():
 
 
 def testing():
-
-    with open(modelfilename, 'r') as f:
-        model = json.load(f)
+    model = loadModel(modelfilename)
 
     mu = model['mean']
     userDeviation = model['userDeviation']
     movieRating = model['movieRating']
 
     def baselineEstimate(row):
-        # print(row)
-        rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (movieRating['rating'][str(int(row['movieId']))] - mu)
+        rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (
+                movieRating['rating'][str(int(row['movieId']))] - mu)
         return db_helper.roundRatings(rating)
 
     test['ratingEstimate'] = test.apply(baselineEstimate, axis=1)
+    test['diff'] = test.apply(lambda x: (x['rating'] - x['ratingEstimate']) ** 2, axis=1)
 
-    test['diff'] = test.apply(
-        lambda x: (x['rating'] - x['ratingEstimate'])**2, axis=1)
-    # print(test)
-    square = test['diff'].sum()
+    squareSum = test['diff'].sum()
     total_testcase = test.shape[0]
-    RMS = math.sqrt(square/total_testcase)
-    print(RMS)
+    RMSE = math.sqrt(squareSum / total_testcase)
+    print(RMSE)
 
 
+def baselineEstimate(model, user, movie):
+    mu = model['mean']
+    userDeviation = model['userDeviation']
+    movieRating = model['movieRating']
 
-# training()
+    rating = mu + (userDeviation['rating'][str(int(user))] - mu) + (movieRating['rating'][str(int(movie))] - mu)
+    return db_helper.roundRatings(rating)
+
+
 testing()
+# baselinemodel = loadModel()
+# print(baselineEstimate(baselinemodel, 71365,5528))
