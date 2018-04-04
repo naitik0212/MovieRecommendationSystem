@@ -1,7 +1,8 @@
 import pandas as pd
 from random import randrange
-from random import sample
+import numpy as np
 
+np.random.seed(20)
 
 file_trainRating = 'Data/ml-20m/train_ratings.csv'
 file_testRating = 'Data/ml-20m/test_ratings.csv'
@@ -31,7 +32,7 @@ def cross_validation_split(dataset, n_folds):
 
 
 def getTrainTestData(filename, trainingPer=80, testingPer=20):
-    """Evaluate an algorithm using a cross validation split"""
+    """Split the data set into training and testing percentage."""
     import os.path
     from numpy.core.tests.test_mem_overlap import xrange
 
@@ -45,7 +46,7 @@ def getTrainTestData(filename, trainingPer=80, testingPer=20):
         train_size = int(datasize * trainingPer / 100)
         test_size = datasize - train_size
 
-        indexes_to_remove = sample(xrange(datasize), test_size)
+        indexes_to_remove = np.random.choice(xrange(datasize), test_size, replace=False).tolist()
         indexes_to_keep = set(xrange(datasize)) - set(indexes_to_remove)
 
         train_set = dataset.take(list(indexes_to_keep))
