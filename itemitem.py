@@ -2,9 +2,13 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
+from baseline import loadModel
+from baseline import baselineEstimate
+
 import os
 RANGE_MIN = 1
 RANGE_MAX = 2
+NUM_SIMILAR = 20
 DATASET_ROOT_PATH = os.path.join(os.getcwd(),'./','')
 OUT_PUT =[]
 
@@ -13,6 +17,39 @@ def readcsv(name):
     return pd.read_csv(os.path.join(DATASET_ROOT_PATH, name))
 
 def calculateRatingIX(mid,uid):
+    similarityMatrix = np.load("similarityMatrix.npy")
+    indexMatrix = np.load("movieindex.npy")
+    index = np.where(indexMatrix == mid)[0][0]
+    similarity = similarityMatrix[index]
+    similarityDF =  pd.DataFrame(similarity.reshape(-1,len(similarity)))
+    similarityDF = similarityDF.transpose()
+    indexDF = pd.DataFrame(indexMatrix.reshape(-1,len(indexMatrix)))
+    indexDF = indexDF.transpose()
+    newDF = pd.concat([indexDF,similarityDF],axis=1)
+    newDF.columns = ['movieId','similarity']
+
+    ratings = readcsv('Data/ml-20m/train_ratings.csv')
+    ratingU = ratings.loc[ratings['userId'] == uid]
+    ratingU = ratingU.drop('timestamp',1)
+
+    newRating = ratingU.merge(newDF, left_on='movieId', right_on='movieId')
+    newRating = newRating.sort_values('similarity', ascending=False)
+    top = newRating.head(n=10)
+
+    similaritySum = top['similarity'].sum()
+    baselinemodel = loadModel()
+    bxi = baselineEstimate(baselinemodel, uid,mid)
+    sum = 0
+    for index, row in top.iterrows():
+        bxj = baselineEstimate(baselinemodel, row['userId'],row['movieId'])
+        rxj = row['rating']
+        sij = row['similarity']
+        sum += (rxj-bxj) * sij
+
+    rxi = bxi + sum/similaritySum
+
+    print(rxi)
+
 
 
 # Uses mltags.csv and combines it with move actor on movie id
@@ -314,4 +351,4 @@ def scale_down_ts_to_between_two_one(df, field, group_field, new_min_label
 if not os.path.exists("similarityMatrix.npy"):
     generate_model()
 
-calculateRatingIX()
+calculateRatingIX(1,1)
