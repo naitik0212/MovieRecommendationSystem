@@ -8,7 +8,7 @@ from baseline import baselineEstimate
 import os
 RANGE_MIN = 1
 RANGE_MAX = 2
-NUM_SIMILAR = 20
+
 DATASET_ROOT_PATH = os.path.join(os.getcwd(),'./','')
 OUT_PUT =[]
 
@@ -16,9 +16,41 @@ OUT_PUT =[]
 def readcsv(name):
     return pd.read_csv(os.path.join(DATASET_ROOT_PATH, name))
 
-def calculateRatingIX(mid,uid):
+def testing():
     similarityMatrix = np.load("similarityMatrix.npy")
     indexMatrix = np.load("movieindex.npy")
+    baselinemodel = loadModel()
+    ratings = readcsv('Data/ml-20m/train_ratings.csv')
+    testData = readcsv('Data/ml-20m/test_ratings.csv')
+    testData = testData.sort_values('userId', ascending=False)
+    uniqueUserId = testData.userId.unique()
+    sumrmse = 0
+
+    for id in np.nditer(uniqueUserId):
+        trainingDataExists = True
+
+        ratingU = ratings.loc[ratings['userId'] == id]
+        ratingU = ratingU.drop('timestamp', 1)
+
+        if len(ratingU) == 0:
+            trainingDataExists = False
+
+        testUserData = testData.loc[testData['userId'] == id]
+        for index, row in testUserData.iterrows():
+            uid = row['userId']
+            mid = row['movieId']
+            if trainingDataExists == True:
+                rxi = calculateRatingIX(uid, mid, similarityMatrix, indexMatrix, ratingU, baselinemodel)
+            else:
+                rxi = baselineEstimate(baselinemodel, uid,mid)
+
+            sumrmse += (row['rating']-rxi) ** 2
+
+    rmse = sumrmse/len(testData) ** (1/2)
+
+    print(rmse)
+
+def calculateRatingIX(uid,mid,similarityMatrix,indexMatrix,ratingU,baselinemodel):
     index = np.where(indexMatrix == mid)[0][0]
     similarity = similarityMatrix[index]
     similarityDF =  pd.DataFrame(similarity.reshape(-1,len(similarity)))
@@ -28,16 +60,14 @@ def calculateRatingIX(mid,uid):
     newDF = pd.concat([indexDF,similarityDF],axis=1)
     newDF.columns = ['movieId','similarity']
 
-    ratings = readcsv('Data/ml-20m/train_ratings.csv')
-    ratingU = ratings.loc[ratings['userId'] == uid]
-    ratingU = ratingU.drop('timestamp',1)
 
     newRating = ratingU.merge(newDF, left_on='movieId', right_on='movieId')
     newRating = newRating.sort_values('similarity', ascending=False)
-    top = newRating.head(n=10)
+    NUM_SIMILAR = min(10,len(ratingU))
+    top = newRating.head(n=NUM_SIMILAR)
 
     similaritySum = top['similarity'].sum()
-    baselinemodel = loadModel()
+
     bxi = baselineEstimate(baselinemodel, uid,mid)
     sum = 0
     for index, row in top.iterrows():
@@ -48,7 +78,7 @@ def calculateRatingIX(mid,uid):
 
     rxi = bxi + sum/similaritySum
 
-    print(rxi)
+    return rxi
 
 
 
@@ -351,4 +381,6 @@ def scale_down_ts_to_between_two_one(df, field, group_field, new_min_label
 if not os.path.exists("similarityMatrix.npy"):
     generate_model()
 
-calculateRatingIX(1,1)
+testing()
+
+
