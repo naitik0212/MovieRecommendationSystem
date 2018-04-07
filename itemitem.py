@@ -25,7 +25,8 @@ def testing():
     testData = testData.sort_values('userId', ascending=False)
     uniqueUserId = testData.userId.unique()
     sumrmse = 0
-
+    i = 0
+    count = 0
     for id in np.nditer(uniqueUserId):
         trainingDataExists = True
 
@@ -37,6 +38,7 @@ def testing():
 
         testUserData = testData.loc[testData['userId'] == id]
         for index, row in testUserData.iterrows():
+            count += 1
             uid = row['userId']
             mid = row['movieId']
             if trainingDataExists == True:
@@ -44,9 +46,9 @@ def testing():
             else:
                 rxi = baselineEstimate(baselinemodel, uid,mid)
 
-            sumrmse += (row['rating']-rxi) ** 2
+            sumrmse += np.square(row['rating']-rxi)
 
-    rmse = sumrmse/len(testData) ** (1/2)
+    rmse = np.sqrt(sumrmse/count)
 
     print(rmse)
 
