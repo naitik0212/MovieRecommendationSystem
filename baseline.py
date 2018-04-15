@@ -8,7 +8,7 @@ import db_helper
 
 filename = 'Data/ml-20m/ratings.csv'
 modelfilename = 'Data/ml-20m/baseline_model'
-train, test = data_reading.getTrainTestData(filename)
+#train, test = data_reading.getTrainTestData(filename)
 
 
 def getMean(dataset, columnName='rating'):
@@ -20,6 +20,7 @@ def getUniqueColumnsValues(dataset, columnName):
 
 
 def loadModel(path=modelfilename):
+    print("hello")
     if not os.path.isfile(modelfilename):
         training()
 
