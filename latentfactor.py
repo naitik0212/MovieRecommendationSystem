@@ -36,7 +36,7 @@ class MF():
         self.b_u = np.zeros(self.num_users)
         self.b_i = np.zeros(self.num_items)
         self.b = np.mean(self.R[np.where(self.R != 0)])
-
+        print("converting to sparse matrix at ", str(datetime.now()))
         self.R = coo_matrix(self.R)
         print("converted to sparse matrix at ", str(datetime.now()))
         self.R = self.R.tocsc()
