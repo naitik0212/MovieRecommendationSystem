@@ -8,7 +8,11 @@ import db_helper
 
 filename = 'Data/ml-20m/ratings.csv'
 modelfilename = 'Data/ml-20m/baseline_model'
-#train, test = data_reading.getTrainTestData(filename)
+
+
+def getTrainTestData():
+    train, test = data_reading.getTrainTestData(filename)
+    return train, test
 
 
 def getMean(dataset, columnName='rating'):
@@ -20,7 +24,6 @@ def getUniqueColumnsValues(dataset, columnName):
 
 
 def loadModel(path=modelfilename):
-    print("hello")
     if not os.path.isfile(modelfilename):
         training()
 
@@ -30,6 +33,7 @@ def loadModel(path=modelfilename):
 
 
 def training():
+    train, test = getTrainTestData()
     mu = getMean(train, columnName='rating')
     userRatingDeviation = train[['userId', 'rating']].groupby('userId').mean()
     averageMovieRatings = train[['movieId', 'rating']].groupby('movieId').mean()
@@ -45,7 +49,11 @@ def training():
 
 
 def testing():
+    print('Testing...')
+    train, test = getTrainTestData()
+    print('Loading baseline model')
     model = loadModel(modelfilename)
+    print('Baseline model loaded')
 
     mu = model['mean']
     userDeviation = model['userDeviation']
@@ -56,13 +64,17 @@ def testing():
                 movieRating['rating'][str(int(row['movieId']))] - mu)
         return db_helper.roundRatings(rating)
 
+    print('Calculating rating estimates...')
     test['ratingEstimate'] = test.apply(baselineEstimate, axis=1)
+    print('Rating estimation done')
+    print('Calculating RMSE')
     test['diff'] = test.apply(lambda x: (x['rating'] - x['ratingEstimate']) ** 2, axis=1)
 
     squareSum = test['diff'].sum()
     total_testcase = test.shape[0]
     RMSE = math.sqrt(squareSum / total_testcase)
-    print(RMSE)
+    print('Root mean square error: %s' % RMSE)
+    print('Testing completed...')
 
 
 def baselineEstimate(model, user, movie):
@@ -74,6 +86,7 @@ def baselineEstimate(model, user, movie):
     return db_helper.roundRatings(rating)
 
 
-testing()
-# baselinemodel = loadModel()
-# print(baselineEstimate(baselinemodel, 71365,5528))
+if __name__ == '__main__':
+    testing()
+    # baselinemodel = loadModel()
+    # print(baselineEstimate(baselinemodel, 71365,5528))

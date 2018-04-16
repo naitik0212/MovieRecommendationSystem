@@ -1,13 +1,16 @@
 import numpy as np
+from numpy import sort
+
 import data_reading
 import pandas as pd
 from scipy.sparse import coo_matrix
+from scipy.sparse import csr_matrix
 import os
 from datetime import datetime
 
 class MF():
 
-    def __init__(self, R, K, alpha, beta, iterations):
+    def __init__(self, R, num_users, num_items,K, alpha, beta, iterations):
         """
         Perform matrix factorization to predict empty
         entries in a matrix.
@@ -20,13 +23,14 @@ class MF():
         """
 
         self.R = R
-        self.num_users, self.num_items = R.shape
+        self.num_users = num_users
+        self.num_items = num_items
         self.K = K
         self.alpha = alpha
         self.beta = beta
         self.iterations = iterations
 
-    def train(self):
+    def train(self,sparse_matrix):
         # Initialize user and item latent feature matrice
         print("training started at ", str(datetime.now()))
         self.P = np.random.normal(scale=1./self.K, size=(self.num_users, self.K))
@@ -37,11 +41,12 @@ class MF():
         # self.b_i = np.zeros(self.num_items)
         # self.b = np.mean(self.R[np.where(self.R != 0)])
 
-        print("converting to sparse matrix at ", str(datetime.now()))
-        self.R = coo_matrix(self.R)
-        print("converted to sparse matrix at ", str(datetime.now()))
-        self.R = self.R.tocsc()
+        # print("converting to sparse matrix at ", str(datetime.now()))
+        # self.R = coo_matrix(self.R)
+        # print("converted to sparse matrix at ", str(datetime.now()))
+        # self.R = self.R.tocsc()
         print("converted to csc matrix at ", str(datetime.now()))
+        self.R = sparse_matrix;
 
         # Perform stochastic gradient descent for number of iterations
         training_process = []
@@ -74,9 +79,7 @@ class MF():
         """
         Perform stochastic graident descent
         """
-        k = 0
         for i, j in zip(*self.R.nonzero()):
-            print(k, "performing sgd");
             # Computer prediction and error
             prediction = self.get_rating(i, j)
             e = (self.R[i,j] - prediction)
@@ -88,7 +91,6 @@ class MF():
             # Update user and item latent feature matrices
             self.P[i, :] += self.alpha * (e * self.Q[j, :] - self.beta * self.P[i,:])
             self.Q[j, :] += self.alpha * (e * self.P[i, :] - self.beta * self.Q[j,:])
-            k+=1
 
     def get_rating(self, i, j):
         """
@@ -135,13 +137,13 @@ def compressDataframe(dataframe):
 # print hdf['d1'].shape
 # hdf.close()
 
-R = np.array([
-    [5, 3, 0, 1],
-    [4, 0, 0, 1],
-    [1, 1, 0, 5],
-    [1, 0, 0, 4],
-    [0, 1, 5, 4],
-])
+# R = np.array([
+#     [5, 3, 0, 1],
+#     [4, 0, 0, 1],
+#     [1, 1, 0, 5],
+#     [1, 0, 0, 4],
+#     [0, 1, 5, 4],
+# ])
 
 filename = 'Data/ml-20m/ratings.csv'
 moviesFileName = "Data/ml-20m/movies.csv"
@@ -160,9 +162,18 @@ else:
     train.info(memory_usage='deep')
     print("\n\n\n\n")
     optimized_train.info(memory_usage='deep')
-    train_ratings_df = optimized_train.pivot(index='userId', columns='movieId', values='rating').fillna(0)
-    R = train_ratings_df.as_matrix()
-    np.save("Data/usermoviematrix.npy", R)
+
+    user_u = list(sort(optimized_train.userId.unique()))
+    movie_u = list(sort(optimized_train.movieId.unique()))
+
+    data = optimized_train['rating'].tolist()
+    row = optimized_train.userId.astype('category', categories=user_u).cat.codes
+    col = optimized_train.movieId.astype('category', categories=movie_u).cat.codes
+    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
+    # train_ratings_df = optimized_train.pivot(index='userId', columns='movieId', values='rating').fillna(0)
+    print(sparse_matrix)
+    # R = train_ratings_df.as_matrix()
+    # np.save("Data/usermoviematrix.npy", R)
 
 print("data loaded at ", str(datetime.now()))
 # R = coo_matrix(R)
@@ -171,11 +182,11 @@ print("data loaded at ", str(datetime.now()))
 # print("converted to csc matrix at ", str(datetime.now()))
 # b =[(i, j, R[i,j]) for i, j in zip(*R.nonzero())]
 # print("converted to desired list format at ", str(datetime.now()))
+R = None
 
-
-mf = MF(R, K=30, alpha=0.1, beta=0.2, iterations=1)
-mf.train()
+mf = MF(R,len(user_u), len(movie_u), K=30, alpha=0.1, beta=0.2, iterations=1)
+# mf.train(sparse_matrix)
 print("training completed at ", str(datetime.now()))
-print(mf.full_matrix())
+# print(mf.full_matrix())
 
-np.save("Data/full_matrix.npy", mf.full_matrix())
+# np.save("Data/full_matrix.npy", mf.full_matrix())
