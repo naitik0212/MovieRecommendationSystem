@@ -33,9 +33,10 @@ class MF():
         self.Q = np.random.normal(scale=1./self.K, size=(self.num_items, self.K))
 
         # Initialize the biases
-        self.b_u = np.zeros(self.num_users)
-        self.b_i = np.zeros(self.num_items)
-        self.b = np.mean(self.R[np.where(self.R != 0)])
+        # self.b_u = np.zeros(self.num_users)
+        # self.b_i = np.zeros(self.num_items)
+        # self.b = np.mean(self.R[np.where(self.R != 0)])
+
         print("converting to sparse matrix at ", str(datetime.now()))
         self.R = coo_matrix(self.R)
         print("converted to sparse matrix at ", str(datetime.now()))
@@ -45,10 +46,12 @@ class MF():
         # Perform stochastic gradient descent for number of iterations
         training_process = []
         for i in range(self.iterations):
-            if (i + 1) % 10 == 0:
+            if i % 10 == 0:
                 print("iteration %d at %s" % (i, str(datetime.now())))
             # np.random.shuffle(self.samples)
+            print("perform sgd at ", str(datetime.now()))
             self.sgd()
+            print("sgd completed at ", str(datetime.now()))
             mse = self.mse()
             training_process.append((i, mse))
             if (i+1) % 1 == 0:
@@ -71,31 +74,36 @@ class MF():
         """
         Perform stochastic graident descent
         """
+        k = 0
         for i, j in zip(*self.R.nonzero()):
+            print(k, "performing sgd");
             # Computer prediction and error
             prediction = self.get_rating(i, j)
             e = (self.R[i,j] - prediction)
 
-            # Update biases
-            self.b_u[i] += self.alpha * (e - self.beta * self.b_u[i])
-            self.b_i[j] += self.alpha * (e - self.beta * self.b_i[j])
+            # # Update biases
+            # self.b_u[i] += self.alpha * (e - self.beta * self.b_u[i])
+            # self.b_i[j] += self.alpha * (e - self.beta * self.b_i[j])
 
             # Update user and item latent feature matrices
             self.P[i, :] += self.alpha * (e * self.Q[j, :] - self.beta * self.P[i,:])
             self.Q[j, :] += self.alpha * (e * self.P[i, :] - self.beta * self.Q[j,:])
+            k+=1
 
     def get_rating(self, i, j):
         """
         Get the predicted rating of user i and item j
         """
-        prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
+        # prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
+        prediction = self.P[i, :].dot(self.Q[j, :].T)
         return prediction
 
     def full_matrix(self):
         """
         Computer the full matrix using the resultant biases, P and Q
         """
-        return self.b + self.b_u[:,np.newaxis] + self.b_i[np.newaxis:,] + self.P.dot(self.Q.T)
+        # return self.b + self.b_u[:,np.newaxis] + self.b_i[np.newaxis:,] + self.P.dot(self.Q.T)
+        return self.P.dot(self.Q.T)
 
 
 
@@ -165,8 +173,9 @@ print("data loaded at ", str(datetime.now()))
 # print("converted to desired list format at ", str(datetime.now()))
 
 
-mf = MF(R, K=50, alpha=0.1, beta=0.2, iterations=1000)
+mf = MF(R, K=30, alpha=0.1, beta=0.2, iterations=1)
 mf.train()
-# print(mf.full_matrix())
+print("training completed at ", str(datetime.now()))
+print(mf.full_matrix())
 
 np.save("Data/full_matrix.npy", mf.full_matrix())
