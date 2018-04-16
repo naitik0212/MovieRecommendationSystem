@@ -6,17 +6,35 @@ from sklearn.utils.extmath import randomized_svd
 import copy
 
 
+def compressDataframe(dataframe):
+    gl_int = dataframe.select_dtypes(include=['int'])
+    converted_int = gl_int.apply(pd.to_numeric, downcast='unsigned')
+
+    gl_float = dataframe.select_dtypes(include=['float'])
+    converted_float = gl_float.apply(pd.to_numeric, downcast='float')
+
+    optimized_gl = dataframe.copy()
+    optimized_gl[converted_int.columns] = converted_int
+    optimized_gl[converted_float.columns] = converted_float
+
+    return optimized_gl
+
 class LatentFactorModel(object):
     def processData(self):
         train, test = data_reading.getTrainTestData(filename)
-        train_ratings_df = train.pivot(index='userId', columns='movieId', values='rating').fillna(0)
-        train_ratings_df_T = train_ratings_df.T
-        train_ratings_matrix = train_ratings_df_T.as_matrix()
+        train = train.drop('timestamp', 1)
+        test = test.drop('timestamp', 1)
+        optimized_train = compressDataframe(train)
 
-        user_ids = train_ratings_df.index.values.tolist()
-        movie_ids = list(train_ratings_df)
-
-        return train, test, train_ratings_matrix, user_ids, movie_ids
+        train_ratings_df = optimized_train.pivot(index='userId', columns='movieId', values='rating').fillna(0)
+        train_ratings_df.head()
+        # train_ratings_df_T = train_ratings_df.T
+        # train_ratings_matrix = train_ratings_df_T.as_matrix()
+        #
+        # user_ids = train_ratings_df.index.values.tolist()
+        # movie_ids = list(train_ratings_df)
+        #
+        # return train, test, train_ratings_matrix, user_ids, movie_ids
 
     def SVDFactorization(self, train_ratings_matrix):
         U, sigma, vt = randomized_svd(train_ratings_matrix, n_components=50)
@@ -91,5 +109,5 @@ if __name__ == "__main__":
     lfm = LatentFactorModel()
 
     train, test, train_ratings_matrix, user_ids, movie_ids = lfm.processData()
-    P, Q = lfm.SVDFactorization(train_ratings_matrix)
-    lfm.gradiantDescent(P, Q, user_ids, movie_ids, train)
+    # P, Q = lfm.SVDFactorization(train_ratings_matrix)
+    # lfm.gradiantDescent(P, Q, user_ids, movie_ids, train)
