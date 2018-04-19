@@ -17,8 +17,8 @@ def readcsv(name):
     return pd.read_csv(os.path.join(DATASET_ROOT_PATH, name))
 
 def testing():
-    similarityMatrix = np.load("similarityMatrix.npy")
-    indexMatrix = np.load("movieindex.npy")
+    similarityMatrix = np.load("Data/ml-20m/similarityMatrix.npy")
+    indexMatrix = np.load("Data/ml-20m/movieindex.npy")
     baselinemodel = loadModel()
     ratings = readcsv('Data/ml-20m/train_ratings.csv')
     testData = readcsv('Data/ml-20m/test_ratings.csv')
@@ -92,10 +92,10 @@ def calculateRatingIX(uid,mid,similarityMatrix,indexMatrix,ratingU,baselinemodel
 def generate_model():
     print("Generating tags model")
 
-    if os.path.exists("similarityMatrix.npy"):
-        similarityMatrix = np.load("similarityMatrix.npy")
+    if os.path.exists("Data/ml-20m/similarityMatrix.npy"):
+        similarityMatrix = np.load("Data/ml-20m/similarityMatrix.npy")
     else:
-        merged = readcsv('new_tags_generes.csv')
+        merged = readcsv('Data/ml-20m/new_tags_generes.csv')
         merged['COUNTER'] = 1
         merged['COUNTER'] = pd.to_numeric(merged['COUNTER'])
 
@@ -112,13 +112,13 @@ def generate_model():
         print(indexValues)
         print(type(indexValues))
         indexValues = np.array(indexValues)
-        np.save("movieindex.npy", indexValues)
+        np.save("Data/ml-20m/movieindex.npy", indexValues)
 
         temp = tf_idf.as_matrix()
-        svd = TruncatedSVD(n_components=30)
+        svd = TruncatedSVD(n_components=100)
         x = svd.fit_transform(temp)
         similarityMatrix = cosine_similarity(x)
-        np.save("similarityMatrix.npy", similarityMatrix)
+        np.save("Data/ml-20m/similarityMatrix.npy", similarityMatrix)
 
 
 # combines the given csv files and calculates weight of each tag and generates a term vector

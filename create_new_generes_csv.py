@@ -1,7 +1,7 @@
 import csv
 
 generesSet = set()
-xyz = open('new_tags_generes.csv', "w")
+xyz = open('Data/ml-20m/new_tags_generes.csv', "w")
 
 i = 0
 f = open('movies.csv', 'r')

@@ -1,6 +1,6 @@
 import csv
 
-xyz = open('new_tags_generes.csv', "a")
+xyz = open('Data/l-20m/new_tags_generes.csv', "a")
 
 i = 0
 f = open('tags.csv', 'r')
