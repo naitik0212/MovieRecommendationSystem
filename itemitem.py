@@ -85,33 +85,36 @@ def calculateRatingIX(uid,mid,similarityMatrix,indexMatrix,ratingU,baselinemodel
 def generate_model():
     print("Generating tags model")
 
-    if os.path.exists("Data/ml-20m/similarityMatrix.npy"):
-        similarityMatrix = np.load("Data/ml-20m/similarityMatrix.npy")
-    else:
-        merged = readcsv('Data/ml-20m/new_tags_generes.csv')
-        merged['COUNTER'] = 1
-        merged['COUNTER'] = pd.to_numeric(merged['COUNTER'])
+    merged = readcsv('Data/ml-20m/new_tags_generes.csv')
+    merged['COUNTER'] = 1
+    merged['COUNTER'] = pd.to_numeric(merged['COUNTER'])
+    print("Generating tags model 1")
+    group_data = pd.DataFrame(merged.groupby(['movieId', 'genres'])['COUNTER'].sum())
+    print("Generating tags model 2")
+    term_vector = group_data.pivot_table('COUNTER', ['movieId'], 'genres')
+    print("Generating tags model 3")
+    term_vector.index.names = ['label']
+    count_df = generate_idf(term_vector)
+    print("Generating tags model 4")
+    term_vector = term_vector.fillna(0)
+    print("Generating tags model 5")
+    term_vector = generate_TF(term_vector)
+    print("Generating tags model 6")
 
-        group_data = pd.DataFrame(merged.groupby(['movieId', 'genres'])['COUNTER'].sum())
-        term_vector = group_data.pivot_table('COUNTER', ['movieId'], 'genres')
-        term_vector.index.names = ['label']
-        count_df = generate_idf(term_vector)
-        term_vector = term_vector.fillna(0)
-        term_vector = generate_TF(term_vector)
+    tf_idf = term_vector.copy(deep=True)
+    tf_idf = tf_idf.mul(count_df.ix[2], axis='columns')
+    indexValues = tf_idf.index.values.tolist()
+    print(indexValues)
+    print(type(indexValues))
+    indexValues = np.array(indexValues)
+    np.save("Data/ml-20m/movieindex.npy", indexValues)
 
-        tf_idf = term_vector.copy(deep=True)
-        tf_idf = tf_idf.mul(count_df.ix[2], axis='columns')
-        indexValues = tf_idf.index.values.tolist()
-        print(indexValues)
-        print(type(indexValues))
-        indexValues = np.array(indexValues)
-        np.save("Data/ml-20m/movieindex.npy", indexValues)
-
-        temp = tf_idf.as_matrix()
-        svd = TruncatedSVD(n_components=100)
-        x = svd.fit_transform(temp)
-        similarityMatrix = cosine_similarity(x)
-        np.save("Data/ml-20m/similarityMatrix.npy", similarityMatrix)
+    temp = tf_idf.as_matrix()
+    svd = TruncatedSVD(n_components=100)
+    x = svd.fit_transform(temp)
+    print("Generating tags model 7")
+    similarityMatrix = cosine_similarity(x)
+    np.save("Data/ml-20m/similarityMatrix.npy", similarityMatrix)
 
 ## given a term vector it generates Term frequency for all the documents
 ## in the dataframe
@@ -137,7 +140,7 @@ def generate_idf(term_vector):
     return count_df
 
 
-if not os.path.exists("similarityMatrix.npy"):
+if not os.path.exists("Data/ml-20m/similarityMatrix.npy"):
     generate_model()
 
 testing()
