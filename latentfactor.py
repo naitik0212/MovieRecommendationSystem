@@ -38,14 +38,6 @@ class MF():
         self.b_i = np.zeros(self.num_items)
         self.b = np.mean(self.R[np.where(self.R != 0)])
 
-        # Create a list of training samples
-        #        self.samples = [
-        #            (i, j, self.R[i, j])
-        #            for i in range(self.num_users)
-        #            for j in range(self.num_items)
-        #            if self.R[i, j] > 0
-        #        ]
-
         print("converting to sparse matrix ", str(datetime.now()))
         a = coo_matrix(R)
         a = a.tocsc()
@@ -69,7 +61,6 @@ class MF():
         A function to compute the total mean square error
         """
         xs, ys = self.R.nonzero()
-        #        predicted = self.full_matrix()
         error = 0
         for x, y in zip(xs, ys):
             error += pow(self.R[x, y] - self.get_rating(x, y), 2)
@@ -103,12 +94,6 @@ class MF():
         prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
         return prediction
 
-    def full_matrix(self):
-        """
-        Computer the full matrix using the resultant biases, P and Q
-        """
-        return self.b + self.b_u[:, np.newaxis] + self.b_i[np.newaxis:, ] + self.P.dot(self.Q.T)
-
 
 def mem_usage(pandas_obj):
     if isinstance(pandas_obj, pd.DataFrame):
@@ -132,67 +117,36 @@ def compressDataframe(dataframe):
 
     return optimized_gl
 
+filename = 'Data/ml-20m/ratings.dat'
+moviesFileName = "Data/ml-20m/movies.dat"
 
-# hdf = pd.HDFStore('storage.h5')
-# hdf.put('d1', train, format='table', data_columns=True)
-# print hdf['d1'].shape
-# hdf.close()
+print("going to load data ", str(datetime.now()))
+if os.path.exists("Data/usermoviematrix.npy"):
+    print("file already exists")
+    R = np.load("Data/usermoviematrix.npy")
+else:
+    print("file does not exist")
+    train, test = data_reading.getTrainTestData(filename)
+    train = train.drop('timestamp', 1)
+    test = test.drop('timestamp', 1)
 
-R = np.array([
-    [5, 3, 0, 1],
-    [4, 0, 0, 1],
-    [1, 1, 0, 5],
-    [1, 0, 0, 4],
-    [0, 1, 5, 4],
-])
+    optimized_train = compressDataframe(train)
+    train.info(memory_usage='deep')
+    print("\n\n\n\n")
+    optimized_train.info(memory_usage='deep')
 
-# filename = 'Data/ml-20m/ratings.dat'
-# moviesFileName = "Data/ml-20m/movies.dat"
-#
-# print("going to load data ", str(datetime.now()))
-# if os.path.exists("Data/usermoviematrix.npy"):
-#     print("file already exists")
-#     R = np.load("Data/usermoviematrix.npy")
-# else:
-#     print("file does not exist")
-#     train, test = data_reading.getTrainTestData(filename)
-#     train = train.drop('timestamp', 1)
-#     test = test.drop('timestamp', 1)
-#
-#     optimized_train = compressDataframe(train)
-#     train.info(memory_usage='deep')
-#     print("\n\n\n\n")
-#     optimized_train.info(memory_usage='deep')
-#
-#     user_u = list(sort(optimized_train.userId.unique()))
-#     movie_u = list(sort(optimized_train.movieId.unique()))
-#
-#     data = optimized_train['rating'].tolist()
-#     row = optimized_train.userId.astype('category', categories=user_u).cat.codes
-#     col = optimized_train.movieId.astype('category', categories=movie_u).cat.codes
-#     sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
-#     print("sparse ", str(datetime.now()))
-#     # train_ratings_df = optimized_train.pivot(index='userId', columns='movieId', values='rating').fillna(0)
-#     # print(sparse_matrix)
-#     R = sparse_matrix.todense()
-#     print("dense ", str(datetime.now()))
-    # R = train_ratings_df.as_matrix()
-#    np.save("Data/usermoviematrix.npy", R)
+    user_u = list(sort(optimized_train.userId.unique()))
+    movie_u = list(sort(optimized_train.movieId.unique()))
 
-
-# print("data loaded at ", str(datetime.now()))
-# R = coo_matrix(R)
-# print("converted to sparse matrix at ", str(datetime.now()))
-# R = R.tocsc()
-# print("converted to csc matrix at ", str(datetime.now()))
-# b =[(i, j, R[i,j]) for i, j in zip(*R.nonzero())]
-# print("converted to desired list format at ", str(datetime.now()))
-
+    data = optimized_train['rating'].tolist()
+    row = optimized_train.userId.astype('category', categories=user_u).cat.codes
+    col = optimized_train.movieId.astype('category', categories=movie_u).cat.codes
+    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
+    print("sparse ", str(datetime.now()))
+    R = sparse_matrix.todense()
+    print("dense ", str(datetime.now()))
 
 
 mf = MF(R, K=2, alpha=0.1, beta=0.01, iterations=20)
 mf.train()
 print("training completed at ", str(datetime.now()))
-print(mf.full_matrix())
-
-np.save("Data/full_matrix.npy", mf.full_matrix())
