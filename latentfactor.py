@@ -114,5 +114,5 @@ print("sparse ", str(datetime.now()))
 R = sparse_matrix.todense()
 print("dense ", str(datetime.now()))
 
-trainModel(R, 30, 0.001, 0.001, 100)
+trainModel(R, 30, 0.01, 0.01, 100)
 print("training completed at ", str(datetime.now()))
