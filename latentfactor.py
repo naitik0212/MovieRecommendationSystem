@@ -76,10 +76,10 @@ def stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, b
         movieBias[j] += alpha * (e - beta * movieBias[j])
 
         # Update user and item latent feature matrices
-        temp_p = alpha * (e * Q[j, :] - beta * P[i, :]) / len(ratingList)
+        temp_p = alpha * (e * Q[j, :] - beta * P[i, :]) / 1000000
         P[i, :] += temp_p
 
-        temp_q = alpha * (e * P[i, :] - beta * Q[j, :]) / len(ratingList)
+        temp_q = alpha * (e * P[i, :] - beta * Q[j, :]) / 1000000
         Q[j, :] += temp_q
 
 def get_rating(b, userBias, movieBias, i, j, P, Q):
@@ -114,5 +114,5 @@ print("sparse ", str(datetime.now()))
 R = sparse_matrix.todense()
 print("dense ", str(datetime.now()))
 
-trainModel(R, 30, 0.1, 0.01, 100)
+trainModel(R, 30, 0.001, 0.001, 100)
 print("training completed at ", str(datetime.now()))
