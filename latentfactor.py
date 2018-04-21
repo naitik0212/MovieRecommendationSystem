@@ -8,145 +8,111 @@ from numpy import sort
 from scipy.sparse import csr_matrix
 
 
-class MF():
-    def __init__(self, R, K, alpha, beta, iterations):
-        """
-        Perform matrix factorization to predict empty
-        entries in a matrix.
+def trainModel(R, K, alpha, beta, iterations):
+    # Initialize user and item latent feature matrice
+    num_users, num_items = R.shape
+    P = np.random.normal(loc=0, scale=1. / (K), size=(num_users, K))
+    Q = np.random.normal(loc=0, scale=1. / (K), size=(num_items, K))
 
-        Arguments
-        - R (ndarray)   : user-item rating matrix
-        - K (int)       : number of latent dimensions
-        - alpha (float) : learning rate
-        - beta (float)  : regularization parameter
-        """
+    # Initialize the biases
+    userBias = np.zeros(num_users)
+    movieBias = np.zeros(num_items)
+    b = np.mean(R[np.where(R != 0)])
 
-        self.R = R
-        self.num_users, self.num_items = R.shape
-        self.K = K
-        self.alpha = alpha
-        self.beta = beta
-        self.iterations = iterations
+    print("converting to sparse matrix ", str(datetime.now()))
+    a = coo_matrix(R)
+    a = a.tocsc()
+    ratingList = [(i, j, R[i, j]) for i, j in zip(*a.nonzero())]
+    print("got desired data at ", str(datetime.now()))
 
-    def train(self):
-        # Initialize user and item latent feature matrice
-        self.P = np.random.normal(loc=0, scale=1. / (self.K), size=(self.num_users, self.K))
-        self.Q = np.random.normal(loc=0, scale=1. / (self.K), size=(self.num_items, self.K))
+    # Perform stochastic gradient descent for number of iterations
+    for i in range(iterations):
+        np.random.shuffle(ratingList)
+        stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, beta)
+        error = testError(b, userBias, movieBias, P, Q)
+        print("Iteration: %d ; error = %.4f" % (i + 1, error))
 
-        # Initialize the biases
-        self.b_u = np.zeros(self.num_users)
-        self.b_i = np.zeros(self.num_items)
-        self.b = np.mean(self.R[np.where(self.R != 0)])
+    return
 
-        print("converting to sparse matrix ", str(datetime.now()))
-        a = coo_matrix(R)
-        a = a.tocsc()
-        self.samples = [(i, j, R[i, j]) for i, j in zip(*a.nonzero())]
-        print("got desired data at ", str(datetime.now()))
+def calculateRootMeanSquareError(b, userBias, movieBias, P, Q):
+    nonZeroUserIndex, nonZeroMovieIndex = R.nonzero()
+    error = 0
+    for x, y in zip(nonZeroUserIndex, nonZeroMovieIndex):
+        error += pow(R[x, y] - get_rating(b, userBias, movieBias, x, y, P, Q), 2)
+    error /= len(nonZeroUserIndex)
+    return np.sqrt(error)
 
-        # Perform stochastic gradient descent for number of iterations
-        training_process = []
-        for i in range(self.iterations):
-            np.random.shuffle(self.samples)
-            self.sgd()
-            mse = self.mse()
-            training_process.append((i, mse))
+def testError(b, userBias, movieBias, P, Q):
+    error = 0
+    count = 0
+    cnt = 0
+    for index, row in test.iterrows():
+        uid = row['userId']
+        mid = row['movieId']
+        predicted_rating = 0
 
-            print("Iteration: %d ; error = %.4f" % (i + 1, mse))
+        if uid in user_index and mid in movie_index:
+            u_index = user_index[uid]
+            m_index = movie_index[mid]
+            predicted_rating = get_rating(b, userBias, movieBias, u_index, m_index, P, Q)
+            cnt += 1
+        else:
+            count += 1
+            predicted_rating = 2.5
+        error += np.square(row['rating'] - predicted_rating)
+    print(cnt, count)
+    error /= len(test)
 
-        return training_process
+    return np.sqrt(error)
 
-    def mse(self):
-        """
-        A function to compute the total mean square error
-        """
-        xs, ys = self.R.nonzero()
-        error = 0
-        for x, y in zip(xs, ys):
-            error += pow(self.R[x, y] - self.get_rating(x, y), 2)
-        error /= len(xs)
-        return np.sqrt(error)
+def stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, beta):
+    for i, j, r in ratingList:
+        # Computer prediction and error
+        prediction = get_rating(b, userBias, movieBias, i, j, P, Q)
+        e = (r - prediction)
 
-    def sgd(self):
-        """
-        Perform stochastic graident descent
-        """
-        for i, j, r in self.samples:
-            # Computer prediction and error
-            prediction = self.get_rating(i, j)
-            e = (r - prediction)
+        # Update biases
+        userBias[i] += alpha * (e - beta * userBias[i])
+        movieBias[j] += alpha * (e - beta * movieBias[j])
 
-            # Update biases
-            self.b_u[i] += self.alpha * (e - self.beta * self.b_u[i])
-            self.b_i[j] += self.alpha * (e - self.beta * self.b_i[j])
+        # Update user and item latent feature matrices
+        temp_p = alpha * (e * Q[j, :] - beta * P[i, :]) / len(ratingList)
+        P[i, :] += temp_p
 
-            # Update user and item latent feature matrices
-            temp_p = self.alpha * (e * self.Q[j, :] - self.beta * self.P[i, :]) / len(self.samples)
-            self.P[i, :] += temp_p
+        temp_q = alpha * (e * P[i, :] - beta * Q[j, :]) / len(ratingList)
+        Q[j, :] += temp_q
 
-            temp_q = self.alpha * (e * self.P[i, :] - self.beta * self.Q[j, :]) / len(self.samples)
-            self.Q[j, :] += temp_q
+def get_rating(b, userBias, movieBias, i, j, P, Q):
+    prediction = b + userBias[i] + movieBias[j] + P[i, :].dot(Q[j, :].T)
+    return prediction
 
-    def get_rating(self, i, j):
-        """
-        Get the predicted rating of user i and item j
-        """
-        prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
-        return prediction
+filename = 'Data/ml-20m/ratings.csv'
+moviesFileName = "Data/ml-20m/movies.csv"
 
+train, test = data_reading.getTrainTestData(filename)
+train = train.drop('timestamp', 1)
+test = test.drop('timestamp', 1)
 
-def mem_usage(pandas_obj):
-    if isinstance(pandas_obj, pd.DataFrame):
-        usage_b = pandas_obj.memory_usage(deep=True).sum()
-    else:  # we assume if not a df it's a series
-        usage_b = pandas_obj.memory_usage(deep=True)
-    usage_mb = usage_b / 1024 ** 2  # convert bytes to megabytes
-    return "{:03.2f} MB".format(usage_mb)
+user_u = list(sort(train.userId.unique()))
+movie_u = list(sort(train.movieId.unique()))
 
+movie_index = {}
+for i in range(len(movie_u)):
+    movie_index[movie_u[i]] = i
+print("movie index dict created")
+user_index = {}
+for i in range(len(user_u)):
+    user_index[user_u[i]] = i
 
-def compressDataframe(dataframe):
-    gl_int = dataframe.select_dtypes(include=['int'])
-    converted_int = gl_int.apply(pd.to_numeric, downcast='unsigned')
+print("User index dict created")
 
-    gl_float = dataframe.select_dtypes(include=['float'])
-    converted_float = gl_float.apply(pd.to_numeric, downcast='float')
+data = train['rating'].tolist()
+row = train.userId.astype('category', categories=user_u).cat.codes
+col = train.movieId.astype('category', categories=movie_u).cat.codes
+sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
+print("sparse ", str(datetime.now()))
+R = sparse_matrix.todense()
+print("dense ", str(datetime.now()))
 
-    optimized_gl = dataframe.copy()
-    optimized_gl[converted_int.columns] = converted_int
-    optimized_gl[converted_float.columns] = converted_float
-
-    return optimized_gl
-
-filename = 'Data/ml-20m/ratings.dat'
-moviesFileName = "Data/ml-20m/movies.dat"
-
-print("going to load data ", str(datetime.now()))
-if os.path.exists("Data/usermoviematrix.npy"):
-    print("file already exists")
-    R = np.load("Data/usermoviematrix.npy")
-else:
-    print("file does not exist")
-    train, test = data_reading.getTrainTestData(filename)
-    train = train.drop('timestamp', 1)
-    test = test.drop('timestamp', 1)
-
-    optimized_train = compressDataframe(train)
-    train.info(memory_usage='deep')
-    print("\n\n\n\n")
-    optimized_train.info(memory_usage='deep')
-
-    user_u = list(sort(optimized_train.userId.unique()))
-    movie_u = list(sort(optimized_train.movieId.unique()))
-
-    data = optimized_train['rating'].tolist()
-    row = optimized_train.userId.astype('category', categories=user_u).cat.codes
-    col = optimized_train.movieId.astype('category', categories=movie_u).cat.codes
-    sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
-    print("sparse ", str(datetime.now()))
-    R = sparse_matrix.todense()
-    print("dense ", str(datetime.now()))
-
-
-mf = MF(R, K=2, alpha=0.1, beta=0.01, iterations=20)
-mf.train()
+trainModel(R, 30, 0.1, 0.01, 20)
 print("training completed at ", str(datetime.now()))
