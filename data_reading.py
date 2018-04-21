@@ -34,6 +34,7 @@ def cross_validation_split(dataset, n_folds):
 def getTrainTestData(filename, trainingPer=80, testingPer=20):
     """Split the data set into training and testing percentage."""
     import os.path
+    from numpy.core.tests.test_mem_overlap import xrange
 
     if os.path.isfile(file_trainRating) and os.path.isfile(file_testRating):
         train_set = pd.read_csv(file_trainRating)
