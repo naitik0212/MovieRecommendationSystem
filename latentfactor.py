@@ -33,11 +33,11 @@ def trainModel(R, K, alpha, beta, epochs):
     for x in range(epochs):
         np.random.shuffle(ratingList)
         P, Q = graidentDescent(ratingList, globalBias, userBias, movieBias, P, Q, alpha, beta)
-        error = testError(globalBias, userBias, movieBias, P, Q)
+        error = calculateRootMeanSquareError(globalBias, userBias, movieBias, P, Q)
         trainError.append(error)
         print("Mean Squared Error is %f for iteration %d Completed at %s" % ( error, x+1, str(datetime.now())))
     print(trainError)
-    return P , Q
+    return P , Q , globalBias , userBias , movieBias
 
 
 def calculateRootMeanSquareError(globalBias, userBias, movieBias, P, Q):
@@ -128,6 +128,9 @@ print("sparse ", str(datetime.now()))
 R = sparse_matrix.todense()
 print("dense ", str(datetime.now()))
 
-P , Q = trainModel(R, 30, 0.01, 0.01, 100)
+P , Q , globalBias , userBias , movieBias= trainModel(R, 30, 0.01, 0.01, 100)
+
+testerror = testError(globalBias , userBias , movieBias , P , Q)
 
 print("training completed at ", str(datetime.now()))
+print("Final MSE on test data is " + testerror)
