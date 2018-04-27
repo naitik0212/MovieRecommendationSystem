@@ -57,15 +57,6 @@ def inputgen(ratingPath, uniqueUserMappingDict, uniqueMovieMappingDict, n_users,
     return data_x, data_y
 
 
-def split_data(train_data, label_data):
-    split_percent = (int)(0.80 * len(train_data))
-    train_x = train_data[:split_percent, :]
-    train_y = label_data[:split_percent, :]
-    test_x = train_data[split_percent:, :]
-    test_y = label_data[split_percent:, :]
-    return train_x, test_x, train_y, test_y
-
-
 def construct_model(train_data, label_data, m, n):
     model = Sequential()
     input_size = m + n
@@ -140,7 +131,7 @@ def test(test_x, test_y, model):
 uniqueUserMappingDict, uniqueMovieMappingDict, users, movies = create_mapping()
 train_x, train_y = inputgen(ratingPath=train_ratingpath, uniqueUserMappingDict=uniqueUserMappingDict,
                             uniqueMovieMappingDict=uniqueMovieMappingDict, n_users=users, n_movies=movies)
-# train_x, test_x, train_y, test_y = split_data(train_x, train_y)
+
 model = construct_model(train_x, train_y, users, movies)
 train_model(model, train_x, train_y)
 

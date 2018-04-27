@@ -6,19 +6,22 @@ from baseline import loadModel
 from baseline import baselineEstimate
 
 import os
+
 RANGE_MIN = 1
 RANGE_MAX = 2
 
-DATASET_ROOT_PATH = os.path.join(os.getcwd(),'./','')
-OUT_PUT =[]
+DATASET_ROOT_PATH = os.path.join(os.getcwd(), './', '')
+OUT_PUT = []
 
 
 def readcsv(name):
     return pd.read_csv(os.path.join(DATASET_ROOT_PATH, name))
 
-def testing():
+
+def testing(k):
     print("testing")
-    similarityMatrix = np.load("Data/ml-20m/similarityMatrix.npy")
+    similarfilename = "similarityMatrix" + str(k) + ".npy"
+    similarityMatrix = np.load("Data/ml-20m/" + similarfilename)
     indexMatrix = np.load("Data/ml-20m/movieindex.npy")
     baselinemodel = loadModel()
     ratings = readcsv('Data/ml-20m/train_ratings.csv')
@@ -29,7 +32,7 @@ def testing():
     i = 0
     count = 0
     for id in np.nditer(uniqueUserId):
-        print(id)
+        # print(id)
         trainingDataExists = True
 
         ratingU = ratings.loc[ratings['userId'] == id]
@@ -46,43 +49,44 @@ def testing():
             if trainingDataExists == True:
                 rxi = calculateRatingIX(uid, mid, similarityMatrix, indexMatrix, ratingU, baselinemodel)
             else:
-                rxi = baselineEstimate(baselinemodel, uid,mid)
+                rxi = baselineEstimate(baselinemodel, uid, mid)
 
-            sumrmse += np.square(row['rating']-rxi)
+            sumrmse += np.square(row['rating'] - rxi)
 
-    rmse = np.sqrt(sumrmse/count)
-
+    rmse = np.sqrt(sumrmse / count)
     print(rmse)
+    return rmse
 
-def calculateRatingIX(uid,mid,similarityMatrix,indexMatrix,ratingU,baselinemodel):
+
+def calculateRatingIX(uid, mid, similarityMatrix, indexMatrix, ratingU, baselinemodel):
     index = np.where(indexMatrix == mid)[0][0]
     similarity = similarityMatrix[index]
-    similarityDF =  pd.DataFrame(similarity.reshape(-1,len(similarity)))
+    similarityDF = pd.DataFrame(similarity.reshape(-1, len(similarity)))
     similarityDF = similarityDF.transpose()
-    indexDF = pd.DataFrame(indexMatrix.reshape(-1,len(indexMatrix)))
+    indexDF = pd.DataFrame(indexMatrix.reshape(-1, len(indexMatrix)))
     indexDF = indexDF.transpose()
-    newDF = pd.concat([indexDF,similarityDF],axis=1)
-    newDF.columns = ['movieId','similarity']
-
+    newDF = pd.concat([indexDF, similarityDF], axis=1)
+    newDF.columns = ['movieId', 'similarity']
 
     newRating = ratingU.merge(newDF, left_on='movieId', right_on='movieId')
     newRating = newRating.sort_values('similarity', ascending=False)
-    NUM_SIMILAR = min(10,len(ratingU))
+    NUM_SIMILAR = min(10, len(ratingU))
     top = newRating.head(n=NUM_SIMILAR)
 
     similaritySum = top['similarity'].sum()
 
-    bxi = baselineEstimate(baselinemodel, uid,mid)
+    bxi = baselineEstimate(baselinemodel, uid, mid)
     sum = 0
     for index, row in top.iterrows():
-        bxj = baselineEstimate(baselinemodel, row['userId'],row['movieId'])
+        bxj = baselineEstimate(baselinemodel, row['userId'], row['movieId'])
         rxj = row['rating']
         sij = row['similarity']
-        sum += (rxj-bxj) * sij
+        sum += (rxj - bxj) * sij
 
-    rxi = bxi + sum/similaritySum
+    rxi = bxi + sum / similaritySum
 
     return rxi
+
 
 def generate_model():
     print("Generating tags model")
@@ -109,6 +113,7 @@ def generate_model():
     similarityMatrix = cosine_similarity(x)
     np.save("Data/ml-20m/similarityMatrix.npy", similarityMatrix)
 
+
 ## given a term vector it generates Term frequency for all the documents
 ## in the dataframe
 
@@ -118,6 +123,7 @@ def generate_TF(term_vector):
     columns.remove('total_freq')
     term_vector = term_vector[columns].div(term_vector.total_freq, axis=0)
     return term_vector
+
 
 ## given a term vector it generates Inverse Document frequency for all the documents
 ## in the dataframe
@@ -133,7 +139,12 @@ def generate_idf(term_vector):
     return count_df
 
 
-if not os.path.exists("Data/ml-20m/similarityMatrix.npy"):
-    generate_model()
+#
+# if not os.path.exists("Data/ml-20m/similarityMatrix.npy"):
+#     generate_model()
 
-testing()
+
+K = [30, 50, 100, 200]
+RMSE = [testing(k) for k in K]
+
+print(RMSE)

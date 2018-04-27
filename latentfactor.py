@@ -1,8 +1,6 @@
 import numpy as np
 import data_reading
-import pandas as pd
 from scipy.sparse import coo_matrix
-import os
 from datetime import datetime
 from numpy import sort
 from scipy.sparse import csr_matrix
@@ -26,13 +24,17 @@ def trainModel(R, K, alpha, beta, iterations):
     print("got desired data at ", str(datetime.now()))
 
     # Perform stochastic gradient descent for number of iterations
+    errorIte = []
     for i in range(iterations):
         np.random.shuffle(ratingList)
         stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, beta)
         error = testError(b, userBias, movieBias, P, Q)
-        print("Iteration: %d ; error = %.4f" % (i + 1, error))
+        errorIte.append(error)
+        print("Iteration: %d ; error = %.4f ; Completed = %s" % (i + 1, error, str(datetime.now())))
 
+    print(errorIte)
     return
+
 
 def calculateRootMeanSquareError(b, userBias, movieBias, P, Q):
     nonZeroUserIndex, nonZeroMovieIndex = R.nonzero()
@@ -41,6 +43,7 @@ def calculateRootMeanSquareError(b, userBias, movieBias, P, Q):
         error += pow(R[x, y] - get_rating(b, userBias, movieBias, x, y, P, Q), 2)
     error /= len(nonZeroUserIndex)
     return np.sqrt(error)
+
 
 def testError(b, userBias, movieBias, P, Q):
     error = 0
@@ -60,10 +63,10 @@ def testError(b, userBias, movieBias, P, Q):
             count += 1
             predicted_rating = 2.5
         error += np.square(row['rating'] - predicted_rating)
-    print(cnt, count)
     error /= len(test)
 
     return np.sqrt(error)
+
 
 def stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, beta):
     for i, j, r in ratingList:
@@ -76,18 +79,22 @@ def stochasticGraidentDescent(ratingList, b, userBias, movieBias, P, Q, alpha, b
         movieBias[j] += alpha * (e - beta * movieBias[j])
 
         # Update user and item latent feature matrices
-        temp_p = alpha * (e * Q[j, :] - beta * P[i, :]) / 1000000
+        temp_p = alpha * (e * Q[j, :] - beta * P[i, :]) / 10000
         P[i, :] += temp_p
 
-        temp_q = alpha * (e * P[i, :] - beta * Q[j, :]) / 1000000
+        temp_q = alpha * (e * P[i, :] - beta * Q[j, :]) / 10000
         Q[j, :] += temp_q
+
 
 def get_rating(b, userBias, movieBias, i, j, P, Q):
     prediction = b + userBias[i] + movieBias[j] + P[i, :].dot(Q[j, :].T)
     return prediction
 
+
 filename = 'Data/ml-20m/ratings.csv'
 moviesFileName = "Data/ml-20m/movies.csv"
+# filename = 'Data/ml-100k/ratings.csv'
+# moviesFileName = "Data/ml-100k/movies.csv"
 
 train, test = data_reading.getTrainTestData(filename)
 train = train.drop('timestamp', 1)
@@ -110,6 +117,7 @@ data = train['rating'].tolist()
 row = train.userId.astype('category', categories=user_u).cat.codes
 col = train.movieId.astype('category', categories=movie_u).cat.codes
 sparse_matrix = csr_matrix((data, (row, col)), shape=(len(user_u), len(movie_u)))
+sparse_matrix = sparse_matrix.astype(dtype='float32')
 print("sparse ", str(datetime.now()))
 R = sparse_matrix.todense()
 print("dense ", str(datetime.now()))

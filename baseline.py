@@ -6,12 +6,18 @@ import os.path
 import data_reading
 import db_helper
 
-filename = 'Data/ml-20m/ratings.csv'
+filename = 'Data/ml-20m/train_ratings.csv'
+testfilename = 'Data/ml-20m/test_ratings.csv'
 modelfilename = 'Data/ml-20m/baseline_model'
 
 
+# filename = 'Data/ml-100k/train_ratings.csv'
+# testfilename = 'Data/ml-100k/test_ratings.csv'
+# modelfilename = 'Data/ml-100k/baseline_model'
+
+
 def getTrainTestData():
-    train, test = data_reading.getTrainTestData(filename)
+    train, test = data_reading.getTrainTestData(filename, file_trainRating=filename, file_testRating=testfilename)
     return train, test
 
 
@@ -60,9 +66,19 @@ def testing():
     movieRating = model['movieRating']
 
     def baselineEstimate(row):
-        rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (
-                movieRating['rating'][str(int(row['movieId']))] - mu)
-        return db_helper.roundRatings(rating)
+        if str(int(row['userId'])) in userDeviation['rating'] and str(int(row['movieId'])) in movieRating['rating']:
+            rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (
+                    movieRating['rating'][str(int(row['movieId']))] - mu)
+            return db_helper.roundRatings(rating)
+        elif str(int(row['userId'])) in userDeviation['rating'] and str(int(row['movieId'])) not in movieRating[
+            'rating']:
+            rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + 0
+            return db_helper.roundRatings(rating)
+        elif str(int(row['userId'])) not in userDeviation['rating'] and str(int(row['movieId'])) in movieRating[
+            'rating']:
+            rating = mu + 0 + (movieRating['rating'][str(int(row['movieId']))] - mu)
+            return db_helper.roundRatings(rating)
+        return -1
 
     print('Calculating rating estimates...')
     test['ratingEstimate'] = test.apply(baselineEstimate, axis=1)
@@ -82,11 +98,19 @@ def baselineEstimate(model, user, movie):
     userDeviation = model['userDeviation']
     movieRating = model['movieRating']
 
-    rating = mu + (userDeviation['rating'][str(int(user))] - mu) + (movieRating['rating'][str(int(movie))] - mu)
-    return db_helper.roundRatings(rating)
+    if str(int(user)) in userDeviation['rating'] and str(int(movie)) in movieRating['rating']:
+        rating = mu + (userDeviation['rating'][str(int(user))] - mu) + (movieRating['rating'][str(int(movie))] - mu)
+        return db_helper.roundRatings(rating)
+    elif str(int(user)) in userDeviation['rating'] and str(int(movie)) not in movieRating['rating']:
+        rating = mu + (userDeviation['rating'][str(int(user))] - mu) + 0
+        return db_helper.roundRatings(rating)
+    elif str(int(user)) not in userDeviation['rating'] and str(int(movie)) in movieRating['rating']:
+        rating = mu + 0 + (movieRating['rating'][str(int(movie))] - mu)
+        return db_helper.roundRatings(rating)
+    return mu
 
 
 if __name__ == '__main__':
     testing()
     # baselinemodel = loadModel()
-    # print(baselineEstimate(baselinemodel, 71365,5528))
+    # print(baselineEstimate(baselinemodel, 1, 44245))
