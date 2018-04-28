@@ -13,7 +13,7 @@ def trainModel(R, K, alpha, beta, epochs):
     s = np.diag(s)
     Q = np.dot(s,vt).transpose()
 
-    # since the values are too large the rmse will take moer iterations to converge.
+    # since the values are too large the rmse will take more iterations to converge.
     P = P /10000
     Q = Q / 10000
 
