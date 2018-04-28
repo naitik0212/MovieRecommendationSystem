@@ -78,7 +78,7 @@ def testing():
             'rating']:
             rating = mu + 0 + (movieRating['rating'][str(int(row['movieId']))] - mu)
             return db_helper.roundRatings(rating)
-        return -1
+        return mu
 
     print('Calculating rating estimates...')
     test['ratingEstimate'] = test.apply(baselineEstimate, axis=1)
