@@ -17,28 +17,17 @@ def load_csv_dataset(filename):
     return dataset
 
 
-def cross_validation_split(dataset, n_folds):
-    """Split dataset into the k folds. Returns the list of k folds"""
-    dataset_split = list()
-    dataset_copy = list(dataset)
-    fold_size = int(len(dataset) / n_folds)
-    for i in range(n_folds):
-        fold = list()
-        while len(fold) < fold_size:
-            index = randrange(len(dataset_copy))
-            fold.append(dataset_copy.pop(index))
-        dataset_split.append(fold)
-    return dataset_split
-
-
-def getTrainTestData(filename, trainingPer=80, testingPer=20):
-    """Split the data set into training and testing percentage."""
+def getTrainTestData(filename, trainingPer=80, testingPer=20, file_trainRating=file_trainRating,
+                     file_testRating=file_testRating):
+    """
+    Split the data set into training and testing percentage.
+    """
     import os.path
     from numpy.core.tests.test_mem_overlap import xrange
 
     if os.path.isfile(file_trainRating) and os.path.isfile(file_testRating):
-        train_set = pd.read_csv(filename)
-        test_set = pd.read_csv(filename)
+        train_set = pd.read_csv(file_trainRating)
+        test_set = pd.read_csv(file_testRating)
         return train_set, test_set
     else:
         dataset = load_csv_dataset(filename)

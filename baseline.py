@@ -6,9 +6,19 @@ import os.path
 import data_reading
 import db_helper
 
-filename = 'Data/ml-20m/ratings.csv'
+filename = 'Data/ml-20m/train_ratings.csv'
+testfilename = 'Data/ml-20m/test_ratings.csv'
 modelfilename = 'Data/ml-20m/baseline_model'
-train, test = data_reading.getTrainTestData(filename)
+
+
+# filename = 'Data/ml-100k/train_ratings.csv'
+# testfilename = 'Data/ml-100k/test_ratings.csv'
+# modelfilename = 'Data/ml-100k/baseline_model'
+
+
+def getTrainTestData():
+    train, test = data_reading.getTrainTestData(filename, file_trainRating=filename, file_testRating=testfilename)
+    return train, test
 
 
 def getMean(dataset, columnName='rating'):
@@ -29,6 +39,7 @@ def loadModel(path=modelfilename):
 
 
 def training():
+    train, test = getTrainTestData()
     mu = getMean(train, columnName='rating')
     userRatingDeviation = train[['userId', 'rating']].groupby('userId').mean()
     averageMovieRatings = train[['movieId', 'rating']].groupby('movieId').mean()
@@ -44,24 +55,42 @@ def training():
 
 
 def testing():
+    print('Testing...')
+    train, test = getTrainTestData()
+    print('Loading baseline model')
     model = loadModel(modelfilename)
+    print('Baseline model loaded')
 
     mu = model['mean']
     userDeviation = model['userDeviation']
     movieRating = model['movieRating']
 
     def baselineEstimate(row):
-        rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (
-                movieRating['rating'][str(int(row['movieId']))] - mu)
-        return db_helper.roundRatings(rating)
+        if str(int(row['userId'])) in userDeviation['rating'] and str(int(row['movieId'])) in movieRating['rating']:
+            rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + (
+                    movieRating['rating'][str(int(row['movieId']))] - mu)
+            return db_helper.roundRatings(rating)
+        elif str(int(row['userId'])) in userDeviation['rating'] and str(int(row['movieId'])) not in movieRating[
+            'rating']:
+            rating = mu + (userDeviation['rating'][str(int(row['userId']))] - mu) + 0
+            return db_helper.roundRatings(rating)
+        elif str(int(row['userId'])) not in userDeviation['rating'] and str(int(row['movieId'])) in movieRating[
+            'rating']:
+            rating = mu + 0 + (movieRating['rating'][str(int(row['movieId']))] - mu)
+            return db_helper.roundRatings(rating)
+        return mu
 
+    print('Calculating rating estimates...')
     test['ratingEstimate'] = test.apply(baselineEstimate, axis=1)
+    print('Rating estimation done')
+    print('Calculating RMSE')
     test['diff'] = test.apply(lambda x: (x['rating'] - x['ratingEstimate']) ** 2, axis=1)
 
     squareSum = test['diff'].sum()
     total_testcase = test.shape[0]
     RMSE = math.sqrt(squareSum / total_testcase)
-    print(RMSE)
+    print('Root mean square error: %s' % RMSE)
+    print('Testing completed...')
 
 
 def baselineEstimate(model, user, movie):
@@ -69,10 +98,19 @@ def baselineEstimate(model, user, movie):
     userDeviation = model['userDeviation']
     movieRating = model['movieRating']
 
-    rating = mu + (userDeviation['rating'][str(int(user))] - mu) + (movieRating['rating'][str(int(movie))] - mu)
-    return db_helper.roundRatings(rating)
+    if str(int(user)) in userDeviation['rating'] and str(int(movie)) in movieRating['rating']:
+        rating = mu + (userDeviation['rating'][str(int(user))] - mu) + (movieRating['rating'][str(int(movie))] - mu)
+        return db_helper.roundRatings(rating)
+    elif str(int(user)) in userDeviation['rating'] and str(int(movie)) not in movieRating['rating']:
+        rating = mu + (userDeviation['rating'][str(int(user))] - mu) + 0
+        return db_helper.roundRatings(rating)
+    elif str(int(user)) not in userDeviation['rating'] and str(int(movie)) in movieRating['rating']:
+        rating = mu + 0 + (movieRating['rating'][str(int(movie))] - mu)
+        return db_helper.roundRatings(rating)
+    return mu
 
 
-testing()
-# baselinemodel = loadModel()
-# print(baselineEstimate(baselinemodel, 71365,5528))
+if __name__ == '__main__':
+    testing()
+    # baselinemodel = loadModel()
+    # print(baselineEstimate(baselinemodel, 1, 44245))
